@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from einops import reduce
 from scipy.special import sph_harm
+from scipy.special import lpmv, factorial
 
 
 def forward_hoa(
@@ -31,7 +32,7 @@ def forward_hoa(
     bases = real_sh(azi, col, order)  # (c, n, ...)
 
     # f(θ, φ) Y_nm(θ, φ)
-    hoa = value * bases  # (c, n, ...)
+    hoa = value * bases.conj() * np.sin(col)  # (c, n, ...)
 
     if reduction == "sum":
         # Integral
@@ -81,21 +82,30 @@ def real_sh(azi: np.ndarray, col: np.ndarray, order: int) -> np.ndarray:
 
     for n in range(order + 1):
         for m in range(-n, n + 1):
-            Y = sph_harm(m, n, azi, col)  # (n, ...)
-            bases.append(Y.real)  # (c, n, ...)
+            Y = real_sph_harm(m, n, azi, col)  # (n, ...)
+            bases.append(Y)  # (c, n, ...)
     
     # Y_nm(θ, φ)
     bases = np.stack(bases, axis=0)  # (c, n, ...)
 
     return bases
 
-
+def real_sph_harm(m, n, azi, col):
+    Y = sph_harm(abs(m), n, azi, col)
+    if m == 0:
+        return Y.real
+    elif m > 0:
+        return np.sqrt(2) * Y.real
+    else:  # m < 0
+        return np.sqrt(2) * Y.imag
+    
+    
 if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
     # Forward
-    order = 5
+    order = 11
 
     azi = np.deg2rad([20, 180])
     col = np.deg2rad([80, 120])
